@@ -1,0 +1,58 @@
+#+TITLE: Readme
+
+#+begin_verse
+Fuente
+https://aosabook.org/en/500L/a-simple-web-server.html
+#+end_src
+
+La idea es crear un servidor web desde cero, para entender como funciona a bajo nivel.
+* Introducción :ATTACH:
+:PROPERTIES:
+:ID:       b630d403-628f-4203-899b-123523f3f7a1
+:END:
+
+Las aplicaciones TCP/IP se comunican a través de sockets (IP+puerto)
+
+HTTP permite que un cliente envíe una solicitud especificando qué recurso desea sobre un socket. El servidor responde con datos generados estática o dinámicamente.
+
+Una petición (Request) HTTP tiene el siguiente esquema:
+
+[[attachment:_20200918_173019screenshot.png]]
+
+Una respuesta (Response) se tiene el siguente formato:
+
+[[attachment:_20200918_173202screenshot.png]]
+
+Una librería sencilla de usar es =Requests= (se debe instalar por separado)
+
+Ejemplo
+#+begin_src  python
+import requests
+
+response = requests.get("http://aosabook.org/en/500L/web-server/testpage.html")
+
+print(response)   # objeto
+print(response.status_code) # 200 OK
+print(response.headers)  # cabeceras
+print(response.text) # html
+#+end_src
+* Programa
+Tiene 6 partes:
+1. Escuchar solicitudes entrantes
+2. Parsear la solicitud
+3. Entender la solicitud
+4. Generar o buscar los datos
+5. Formatear los datos como HTML
+6. Enviarlos
+** Primera fase
+#+begin_src python :tangle simple-web-server.py
+import BaseHTTPServer
+
+
+if __name__ == "__main__":
+    serverAddress = ("", 8080)
+    server = BaseHTTPServer.HTTPServer(serverAddress, RequestHandler)
+    server.serve_forever()
+#+end_src
+
+#+RESULTS:
