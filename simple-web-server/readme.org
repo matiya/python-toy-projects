@@ -3,6 +3,8 @@
 #+begin_verse
 Fuente
 https://aosabook.org/en/500L/a-simple-web-server.html
+
+(si bien seguí la guía en un 90%, hice algunas modificaciones aquí y allá)
 #+end_src
 
 La idea es crear un servidor web desde cero, para entender como funciona a bajo nivel.
@@ -44,15 +46,118 @@ Tiene 6 partes:
 4. Generar o buscar los datos
 5. Formatear los datos como HTML
 6. Enviarlos
-** Primera fase
-#+begin_src python :tangle simple-web-server.py
-import BaseHTTPServer
+
+** Servir una página estática básica
+Python3 incluye la librería =http.server=, la cual disponibiliza una clase básica =http.server.HTTPServer=.
+
+Para instanciarla solo es necesario indicarle en qué socket escuchará el servidor y asignarle una clase para atender solicitudes =http.server.BaseHTTPRequestHandler=.
+
+En la clase =http.server.BaseHTTPRequestHandler= podemos definir las cabeceras HTTP que serán enviadas, así como también el contenido HTML de la página.
+
+
+#+begin_src python
+import http.server
+
+
+class RequestHandler(http.server.BaseHTTPRequestHandler):
+    """Regreso una página básica"""
+
+    page = """<html>
+            <body>
+            <h1>Hola</h1>
+            <p> Mundis </p>
+            </body>
+            </html>""".encode()
+
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(self.page)))
+        self.end_headers()
+        self.wfile.write(self.page)
 
 
 if __name__ == "__main__":
     serverAddress = ("", 8080)
-    server = BaseHTTPServer.HTTPServer(serverAddress, RequestHandler)
-    server.serve_forever()
+    server = http.server.HTTPServer(serverAddress, RequestHandler)
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    server.close()
 #+end_src
 
-#+RESULTS:
+Al visitar =http://localhost:8080= se observa la página básica definida en la variable =page=.
+
+** Mostrar valores calculados dinámicamente :ATTACH:
+:PROPERTIES:
+:ID:       75de248d-43be-4816-aabf-00e927de38b0
+:END:
+Una aplicación web, además de servir HTML estático, tiene la capacidad de realizar operaciones con datos antes de mostrarlos.
+
+Para incluir esta funcionalidad, podemos definir una variable con una plantilla HTML:
+
+#+begin_src python
+template = '''\
+<html>
+<body>
+<table>
+<tr>  <td>Header</td>         <td>Value</td>          </tr>
+<tr>  <td>Date and time</td>  <td>{date_time}</td>    </tr>
+<tr>  <td>Client host</td>    <td>{client_host}</td>  </tr>
+<tr>  <td>Client port</td>    <td>{client_port}s</td> </tr>
+<tr>  <td>Command</td>        <td>{command}</td>      </tr>
+<tr>  <td>Path</td>           <td>{path}</td>         </tr>
+</table>
+</body>
+</html>
+'''
+#+end_src
+Los valores entre llaves ={}= serán calculados al momento de realizar la solicitud GET HTTP.
+
+Para esto, alcanza con agregar dos métodos nuevos en la clase =RequestHandler=:
+
+#+begin_src python
+    def create_page(self):
+        values = {
+            'date_time': self.date_time_string(),
+            'client_host': self.client_address[0],
+            'client_port': self.client_address[1],
+            'command': self.command,
+            'path': self.path
+        }
+        page = self.template.format(**values)
+        print(page)
+        return page
+
+    def send_page(self):
+        page = self.create_page()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(page.encode())
+#+end_src
+    En =create_page= se formatea el HTML y se guarda el resultado en la variable =page=.
+   
+    Luego en =send_page= se envía el HTML contenido en la variable al output stream =wfile=. Vale aclarar que al ser un stream, podriamos continuar escribiendo en él, sin embargo el proceso será bloqueante.
+
+    Por ejemplo:
+    #+begin_src python
+    def send_page(self):
+        page = self.create_page()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(page.encode())
+        for i in range(5):
+            self.wfile.write(f"<b> {i} </b> </br>".encode())
+            time.sleep(1)
+    #+end_src
+   
+    Producirá:
+ [[attachment:_20200927_134418screenshot.png]]
+
+ Sin embargo, la página tardará 5 segundos en cargarse.
+** Servir HTML estático desde el disco

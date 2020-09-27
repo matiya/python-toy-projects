@@ -1,26 +1,46 @@
+import os
+import time
 import http.server
 
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
     """Regreso una página básica"""
 
-    Page = """\
-    <html>
-    <body>
-    <table>
-    <tr>  <td>Header</td>         <td>Value</td>          </tr>
-    <tr>  <td>Date and time</td>  <td>{date_time}</td>    </tr>
-    <tr>  <td>Client host</td>    <td>{client_host}</td>  </tr>
-    <tr>  <td>Client port</td>    <td>{client_port}s</td> </tr>
-    <tr>  <td>Command</td>        <td>{command}</td>      </tr>
-    <tr>  <td>Path</td>           <td>{path}</td>         </tr>
-    </table>
-    </body>
-    </html>
-    """
-   
+    template = '''\
+<html>
+<body>
+<table>
+<tr>  <td>Header</td>         <td>Value</td>          </tr>
+<tr>  <td>Date and time</td>  <td>{date_time}</td>    </tr>
+<tr>  <td>Client host</td>    <td>{client_host}</td>  </tr>
+<tr>  <td>Client port</td>    <td>{client_port}s</td> </tr>
+<tr>  <td>Command</td>        <td>{command}</td>      </tr>
+<tr>  <td>Path</td>           <td>{path}</td>         </tr>
+</table>
+</body>
+</html>
+'''
+
     def do_GET(self):
-        self.send_page()
+        try:
+            full_path = os.getcwd() + self.path
+            if not os.path.exists(full_path):
+                raise Exception(f"{self.path} not found")
+            elif os.path.isfile(full_path):
+                self.handle_file(full_path)
+            else:
+                raise Exception(f"{self.path} is unknown object")
+            self.send_page()
+
+        except Exception as msg:
+            self.handle_error(msg)
+
+    def handle_file(self, full_path):
+        html_file = open(full_path, "r")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(html_file.read().encode())
 
     def create_page(self):
         values = {
@@ -30,7 +50,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             'command': self.command,
             'path': self.path
         }
-        page = self.Page.format(**values)
+        page = self.template.format(**values)
         print(page)
         return page
 
@@ -41,8 +61,16 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(page.encode())
 
+    def handle_error(self, msg):
+        print(f">>> Error:  {msg}")
+        # self.send_page()
 
 if __name__ == "__main__":
     serverAddress = ("", 8080)
-    server = HTTPServer.HTTPServer(serverAddress, RequestHandler)
-    server.serve_forever()
+    server = http.server.HTTPServer(serverAddress, RequestHandler)
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    server.shutdown()
