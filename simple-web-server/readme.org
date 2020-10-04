@@ -161,3 +161,47 @@ Para esto, alcanza con agregar dos métodos nuevos en la clase =RequestHandler=:
 
  Sin embargo, la página tardará 5 segundos en cargarse.
 ** Servir HTML estático desde el disco
+La idea ahora es que _además_ de servir una página dinámica con información sobre la solicitud, pueda servir html que se encuentra almancenado en el disco.
+
+Para ello lo primero que se debe hacer es modificar el método =send_page= para que acepte el parámetro nuevo =content=. Éste será html enviado desde otra función, y en el caso de que no se obtenga nada, se creará la página con información sobre la solicitud.
+
+#+begin_src python
+    def send_page(self, content = None):
+        if content is None:
+            content = self.create_page().encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(content)
+#+end_src
+
+También el método =do_GET= es modificado, de tal manera que compruebe en primer lugar que el archivo solicitado en el GET Request exista. En caso de que no lo haga, levantará un error.
+#+begin_src python
+    def do_GET(self):
+        try:
+            full_path = os.getcwd() + self.path
+            if not os.path.exists(full_path) and not (
+                "favicon" or "icon.png" in full_path
+            ):
+                raise Exception(f"{self.path} not found")
+            elif os.path.isfile(full_path):
+                self.handle_file(full_path)
+            else:
+                raise Exception(f"{self.path} is unknown object")
+
+        except Exception as msg:
+            self.handle_error(msg)
+#+end_src
+La función de error =handle_error= simplemente imprime el mensaje y muestra la página con información de la solicitud.
+
+Finalmente la el método =handle_file= es el encargado de leer el archivo en el disco y enviarlo al método =send_page=
+
+#+begin_src python
+    def handle_file(self, full_path):
+        try:
+            html_file = open(full_path, "r")
+            content = html_file.read()
+        except Exception as msg:
+            self.handle_error(msg)
+        self.send_page(content.encode())
+#+end_src

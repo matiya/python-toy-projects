@@ -1,12 +1,11 @@
 import os
-import time
 import http.server
 
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
     """Regreso una página básica"""
 
-    template = '''\
+    template = """\
 <html>
 <body>
 <table>
@@ -19,51 +18,55 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 </table>
 </body>
 </html>
-'''
+"""
 
     def do_GET(self):
         try:
             full_path = os.getcwd() + self.path
-            if not os.path.exists(full_path):
+            if not os.path.exists(full_path) and not (
+                "favicon" or "icon.png" in full_path
+            ):
                 raise Exception(f"{self.path} not found")
             elif os.path.isfile(full_path):
                 self.handle_file(full_path)
             else:
                 raise Exception(f"{self.path} is unknown object")
-            self.send_page()
 
         except Exception as msg:
             self.handle_error(msg)
 
     def handle_file(self, full_path):
-        html_file = open(full_path, "r")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        self.wfile.write(html_file.read().encode())
+        try:
+            html_file = open(full_path, "r")
+            content = html_file.read()
+        except Exception as msg:
+            self.handle_error(msg)
+        self.send_page(content.encode())
 
     def create_page(self):
         values = {
-            'date_time': self.date_time_string(),
-            'client_host': self.client_address[0],
-            'client_port': self.client_address[1],
-            'command': self.command,
-            'path': self.path
+            "date_time": self.date_time_string(),
+            "client_host": self.client_address[0],
+            "client_port": self.client_address[1],
+            "command": self.command,
+            "path": self.path,
         }
         page = self.template.format(**values)
         print(page)
         return page
 
-    def send_page(self):
-        page = self.create_page()
+    def send_page(self, content=None):
+        if content is None:
+            content = self.create_page().encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
-        self.wfile.write(page.encode())
+        self.wfile.write(content)
 
     def handle_error(self, msg):
         print(f">>> Error:  {msg}")
-        # self.send_page()
+        self.send_page()
+
 
 if __name__ == "__main__":
     serverAddress = ("", 8080)
