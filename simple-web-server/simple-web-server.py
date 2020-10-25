@@ -5,13 +5,31 @@ import http.server
 
 
 class case_directory:
+    header = """<html>
+               <body>
+                   <h2> Índice </h2>
+               <ul>
+               """
+    footer = """</ul>
+               </body>
+               </html>
+            """
+
     def test(self, handler):
         return os.path.isdir(handler.full_path)
 
     def act(self, handler):
-        print("case_directory")
-        os.walk()  # regresa los archivos en un directorio
-        pass
+        print(handler.full_path)
+        # regresa los archivos en un directorio
+        index_page = self.header
+        for top_dir, subdirs, files in os.walk(handler.full_path):
+            for item in files:
+                item_full_path = handler.full_path + item
+                if os.path.isfile(item_full_path):
+                    index_page += f"<li><a href={item_full_path}>\
+                                    {item}</a></li>\n"
+        index_page += self.footer
+        print(index_page)
 
 
 class case_file:

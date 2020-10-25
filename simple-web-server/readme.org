@@ -205,3 +205,72 @@ Finalmente la el método =handle_file= es el encargado de leer el archivo en el 
             self.handle_error(msg)
         self.send_page(content.encode())
 #+end_src
+** Mostrar un listado del directorio
+En este paso, queremos que el servidor muestre el contenido de un directorio, si es que la URL apunta a un directorio válido.
+
+Si la ruta es =/= podemos contruir y enviar el archivo =index.html= con todos los directorios conocidos.
+
+El primer paso consiste en modificar el método =do_GET= para preguntar qué clase de objeto es solicitado por una URL.
+Se podría crear una secuencia de =if= =else= (similar a =switch= =case= en C), el problema de esto es que para cada caso nuevo se debería agregar una condición nueva y puede volverse dificil de leer.
+
+Una solución más elegante es definir clases con dos métodos: =act= y =test=. Al llamar al  método =test= se comprueba si el caso aplica, en caso afirmativo se llama al método =act=.
+#+begin_src python
+def do_GET(self):
+    try:
+        # construir el full path
+        full_path = os.getcwd() + self.path
+        # iterar por cada caso, comprobar si aplica
+        # y ejecutar una accion de ser así
+        for case in self.Cases:
+            # instancio la clase case
+            handler = case()
+            # para el metodo test sólo requiero el full_path
+            if handler.test(full_path):
+                # en el metodo act envío el propio objeto RequestHandler
+                # ya que espero que llame un metodo (handle_file o handle_error)
+                handler.act(self)
+                # solo ejecuto el handler adecuado
+                break
+#+end_src
+
+El atributo =Cases= se define dentro de la clase =RequestHandler=
+#+begin_src python
+class RequestHandler(http.server.BaseHTTPRequestHandler):
+    Cases = [case_directory(), case_file(), case_no_file(), case_error()]
+#+end_src
+
+Finalmente, es necesario definir las clases que definen los métodos =test= y =act= en cada caso:
+#+begin_src python
+class case_directory:
+    def test(self, handler):
+        return os.path.isdir(handler.full_path)
+
+    def act(self, handler):
+        pass
+
+class case_file:
+    def test(self, handler):
+        return os.path.isfile(handler.full_path)
+
+    def act(self, handler):
+        handler.handle_file()
+
+class case_invalid_path:
+    def test(self, handler):
+        return not os.path.exists(handler.full_path)
+
+    def act(self, handler):
+        handler.send_page(status=404)
+
+class case_error:
+    def test(self, handler):
+        return True
+
+    def act(self, handler):
+        handler.handle_error(f"{handler.path} no encontrado")
+#+end_src
+Si bien la lógica es un poco más obtusa, pues para saber lo que hace el método =do_GET= también debemos referirnos a cada clase =case_=, hemos ganado mantenibilidad y la capacidad de agregar nuevos casos con mínimas modificaciones (bastaría con agregar el nuevo caso en la variable =Case= dentro de la clase =RequestHandler=)
+
+** TODO The CGI Protocol
+
+Of course, most people won't want to edit the source of their web server in order to add new functionality. To save them from having to do so, servers have always supported a mechanism called the Common Gateway Interface (CGI), which provides a standard way for a web server to run an external program in order to satisfy a request.
