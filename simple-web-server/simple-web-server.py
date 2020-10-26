@@ -5,31 +5,37 @@ import http.server
 
 
 class case_directory:
-    header = """<html>
-               <body>
-                   <h2> Índice </h2>
-               <ul>
-               """
-    footer = """</ul>
-               </body>
-               </html>
-            """
-
     def test(self, handler):
         return os.path.isdir(handler.full_path)
 
     def act(self, handler):
-        print(handler.full_path)
+
+        file_items = ""
+        dir_items = ""
         # regresa los archivos en un directorio
-        index_page = self.header
+        # FIXME Si pido directorio/ funciona, pero con directorio no
+        # FIXME Tal vez crear otro método para ordenar esto?
         for top_dir, subdirs, files in os.walk(handler.full_path):
             for item in files:
-                item_full_path = handler.full_path + item
-                if os.path.isfile(item_full_path):
-                    index_page += f"<li><a href={item_full_path}>\
+                handler.full_path + item
+                if os.path.isfile(handler.full_path + item):
+                    file_items += f"<li><a href={item}>\
                                     {item}</a></li>\n"
-        index_page += self.footer
+            for subdir in subdirs:
+                if os.path.isdir(handler.full_path + subdir):
+                    dir_items += f"<li><a href={subdir}>\
+                                    {subdir}</a></li>\n"
+        index_page = f"""<html>
+                        <body>
+                        <h2> Archivos </h2>
+                        <ul> {file_items} </ul>
+                        <h2> Directorios </h2>
+                        <ul> {dir_items} </ul>
+                        </body>
+                        </html>
+                    """
         print(index_page)
+        handler.send_page(content=index_page.encode())
 
 
 class case_file:
