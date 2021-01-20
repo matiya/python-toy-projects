@@ -39,7 +39,12 @@ def main():
     tgtHost = options.tgtHost
     tgtPorts = options.tgtPorts
 
-    if not match(r"\d+\.\d+\.\d+\.\d", tgtHost):
+    if not tgtHost or not tgtPorts:
+        print(colored("[ERROR] Missing arguments", "red"))
+        parser.print_help()
+        exit()
+
+    if not match(r"\d+\.\d+\.\d+\.\d+", tgtHost):
         print(colored("[ERROR] Target host can only be an IP Address", "red"))
         print(parser.usage)
         exit(0)
